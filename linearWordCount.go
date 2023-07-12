@@ -14,28 +14,17 @@ func checkNilErr(err error) {
 	}
 }
 
-func main() {
-	// Open the file
-	file, err := os.Open("./bible.txt")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-	start := time.Now()
+func readFunc(filePath string) *os.File {
+	file, err := os.Open(filePath)
+	checkNilErr(err)
+	return file
+	// defer file.Close()
+}
 
-	// Create a buffered reader for efficient reading
-	reader := bufio.NewReader(file)
-
+func processData(buffer []byte, reader *bufio.Reader) (int, map[string]uint16) {
 	wordCount := 0
-	var words []string
-
-	// charsToCut := "!,.?!:;'\""
-
 	wordMap := map[string]uint16{}
 
-	// Read the file chunk by chunk until EOF
-	buffer := make([]byte, 64*1024) // 64KB buffer size
 	for {
 		bytesRead, err := reader.Read(buffer)
 		if err != nil {
@@ -44,7 +33,7 @@ func main() {
 
 		// Count the words in the chunk
 		chunk := string(buffer[:bytesRead])
-		words = strings.Fields(chunk)
+		words := strings.Fields(chunk)
 		wordCount += len(words)
 		for i := 0; i < len(words); i++ {
 			// fmt.Println(words[i])
@@ -52,13 +41,42 @@ func main() {
 			wordMap[words[i]] += 1
 		}
 	}
-	// fmt.Println(words[0])
-	elapsed := time.Since(start)
+	return wordCount, wordMap
+}
 
-	fmt.Println(len(words))
+func main() {
+	// Open the file
+	filePath := "./bible.txt"
+	file := readFunc(filePath)
+	defer file.Close()
+
+	// Create a buffered reader for efficient reading
+	reader := bufio.NewReader(file)
+	buffer := make([]byte, 64*1024) // 64KB buffer size
+
+	startTotal := time.Now()
+	elapsedTotal := time.Since(startTotal)
+	wordCount := 0
+	wordMap := map[string]uint16{}
+	for i := 0; i < 100; i++ {
+		startLocal := time.Now()
+		wordCount, wordMap = processData(buffer, reader)
+		elapsedLocal := time.Since(startLocal)
+		elapsedTotal = time.Since(startTotal)
+
+		fmt.Println(elapsedTotal, elapsedLocal)
+
+		file = readFunc(filePath)
+		reader = bufio.NewReader(file)
+	}
+	fmt.Println(wordCount)
+
+	elapsedTotal = time.Since(startTotal)
+
 	fmt.Println(wordMap)
 
 	fmt.Println("Total word count:", wordCount)
-	fmt.Printf("Execution time: %s\n", elapsed)
+	fmt.Printf("Total Execution time: %s\n", elapsedTotal)
+	fmt.Printf("Avg Execution time: %s\n", elapsedTotal/100)
 
 }
