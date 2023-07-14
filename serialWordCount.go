@@ -21,6 +21,16 @@ func readFunc(filePath string) *os.File {
 	// defer file.Close()
 }
 
+func avgArray(input []float32) float32 {
+	i := float32(0)
+	total := float32(0)
+	for _, val := range input {
+		total += val
+		i += 1
+	}
+	return total / i
+}
+
 func processData(buffer []byte, reader *bufio.Reader) (int, map[string]uint16) {
 	wordCount := 0
 	wordMap := map[string]uint16{}
@@ -44,7 +54,11 @@ func processData(buffer []byte, reader *bufio.Reader) (int, map[string]uint16) {
 	return wordCount, wordMap
 }
 
-func main() {
+func SerialWordCounter() {
+	// Declaring Variables
+	wordCount := 0
+	wordMap := map[string]uint16{}
+
 	// Open the file
 	filePath := "./bible.txt"
 	file := readFunc(filePath)
@@ -54,15 +68,17 @@ func main() {
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 64*1024) // 64KB buffer size
 
+	// Initializing timers
+	localTimeArray := []float32{}
 	startTotal := time.Now()
 	elapsedTotal := time.Since(startTotal)
-	wordCount := 0
-	wordMap := map[string]uint16{}
-	for i := 0; i < 100; i++ {
+
+	for i := 0; i < 1; i++ {
 		startLocal := time.Now()
 		wordCount, wordMap = processData(buffer, reader)
 		elapsedLocal := time.Since(startLocal)
 		elapsedTotal = time.Since(startTotal)
+		localTimeArray = append(localTimeArray, float32(elapsedLocal.Milliseconds()))
 
 		fmt.Println(elapsedTotal, elapsedLocal)
 
@@ -73,10 +89,10 @@ func main() {
 
 	elapsedTotal = time.Since(startTotal)
 
-	fmt.Println(wordMap)
+	fmt.Println(len(wordMap))
 
 	fmt.Println("Total word count:", wordCount)
 	fmt.Printf("Total Execution time: %s\n", elapsedTotal)
-	fmt.Printf("Avg Execution time: %s\n", elapsedTotal/100)
+	fmt.Printf("Avg Execution time: %vms\n", avgArray(localTimeArray))
 
 }
