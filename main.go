@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	mapReduce "here/localMapReduce"
 	"os"
 )
 
@@ -10,8 +11,10 @@ func main() {
 	if os.Args[1] == "sequential" {
 		// fmt.Println("here")
 		SerialWordCounter()
+	} else if os.Args[1] == "concurrent" {
+		ConcCoordinator()
 	} else {
-		Coordinator()
+		mapReduce.Coordinator()
 	}
 
 }

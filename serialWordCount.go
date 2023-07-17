@@ -89,7 +89,7 @@ func SerialWordCounter() {
 
 	elapsedTotal = time.Since(startTotal)
 
-	fmt.Println(len(wordMap))
+	fmt.Println(wordMap)
 
 	fmt.Println("Total word count:", wordCount)
 	fmt.Printf("Total Execution time: %s\n", elapsedTotal)

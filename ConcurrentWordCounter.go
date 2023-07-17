@@ -4,30 +4,46 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
 var workerNum int = 4
 var wordSum int = 0
+var wordMap = make(map[string]uint16)
+var mutex = &sync.Mutex{} // Mutex to synchronize access to wordMap
 
-func worker(id int, jobs chan string) {
-	for j := range jobs { //j is the 64kb chunk that is being read
+func worker(id int, jobs chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for j := range jobs {
 		fmt.Println("worker", id, "started new job")
-		// <-jobs
 		words := strings.Fields(j)
+		countMap := make(map[string]uint16)
+
+		for _, word := range words {
+			word = strings.Trim(word, "!,.?!:;()'\"")
+			// fmt.Println(word)
+			countMap[word]++
+		}
+
+		mutex.Lock()
+		for word, count := range countMap {
+			// fmt.Println(word, count)
+			wordMap[word] += count
+		}
+		mutex.Unlock()
+
 		wordSum += len(words)
-		fmt.Println("Num of chars in chunk", len(j))
-		fmt.Println("Num of words in chunk", len(words))
-
-		// fmt.Println("worker", id, "finished", j)
-
 	}
 }
 
 func processDataConcurrently(buffer []byte, reader *bufio.Reader, jobs chan string) {
-	// Create workers to receive chunks/jobs from job channel
+	var wg sync.WaitGroup
+
 	for w := 1; w <= workerNum; w++ {
-		go worker(w, jobs)
+		wg.Add(1)
+		go worker(w, jobs, &wg)
 	}
 
 	for {
@@ -37,36 +53,29 @@ func processDataConcurrently(buffer []byte, reader *bufio.Reader, jobs chan stri
 		}
 		chunk := string(buffer[:bytesRead])
 
-		//give Chunks to a job channel
 		jobs <- chunk
-		// break // <- delete me when done testing
 	}
+
 	close(jobs)
+	wg.Wait()
 }
 
-func Coordinator() {
-	// Opening file
-	fmt.Println("Inside Coordinator")
+func ConcCoordinator() {
+	fmt.Println("Inside ConcCoordinator")
 	filePath := "./bible.txt"
 	file := readFunc(filePath)
 	defer file.Close()
 
-	// Create a buffered reader for efficient reading
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 64*1024)
 
-	// Synchronization and Channels
 	jobs := make(chan string)
-	results := make(chan string)
-	fmt.Println("placeholder: ", results)
 
-	// Reading through file
 	processDataConcurrently(buffer, reader, jobs)
-
-	// fmt.Println(wordCount)
 
 	fmt.Println(wordSum)
 	time.Sleep(time.Second)
 	fmt.Println(wordSum)
-	defer fmt.Println("End of Coordinator")
+	fmt.Println(wordMap)
+	defer fmt.Println("End of ConcCoordinator")
 }
