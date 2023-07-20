@@ -6,39 +6,53 @@ import (
 	"sync"
 )
 
-func activateIntermediaryProcess(intermediaryJobs chan map[string]uint16) {
+var wgGlobalMapper sync.WaitGroup
+
+var AvailableIntermediaryProcesses = [2]bool{true, true}
+var IntermediaryJobs = make(chan keyValuePair)
+
+type keyValuePair struct {
+	key   string
+	value uint16
+}
+
+func shouldCloseInterChannel(avail [2]bool, channel chan keyValuePair) bool {
+	// if channel is already closed, return false
+	_, ok := <-channel
+	return ok
+}
+
+func activateIntermediaryProcess(intermediaryJobs chan keyValuePair) {
 	for i, available := range AvailableIntermediaryProcesses {
 		if available {
 			AvailableIntermediaryProcesses[i] = false
-			go intermediary(i, intermediaryJobs)
+			go IntermediaryProcess(i, intermediaryJobs)
 			break
 		} else {
-			log.Println("Coordinator: Intermediary process", i, "is not available")
+			// log.Println("Mapper: Intermediary process", i, "is not available")
 		}
 	}
 }
 
 func mapperWorker(id int, processId int, mapperJobs chan string, wgMapper *sync.WaitGroup) {
 	log.Println("Mapper process", processId, ": worker", id, "started")
-	// var wgLocal sync.WaitGroup
 
 	for j := range mapperJobs {
 		words := strings.Fields(j)
-		wordMap := make(map[string]uint16)
 		countLocal := 0
+
+		activateIntermediaryProcess(IntermediaryJobs)
 
 		for _, word := range words {
 			countLocal++
 			word = strings.Trim(word, "!,.?!:;()'\"")
-			wordMap[word]++
-			// log.Println("Mapper process", processId, ": worker", id, "processed", word)
+			pair := keyValuePair{word, 1}
+			// pair = pair // for testing
+
+			// Send key value pair to intermediary process
+			IntermediaryJobs <- pair
 		}
 		log.Println("Mapper process", processId, ": worker", id, "processed", countLocal, "words")
-		activateIntermediaryProcess(IntermediaryJobs)
-
-		// Send wordMap and wordCount to intermediary/shuffle and sort
-		IntermediaryJobs <- wordMap
-		// log.Println(wordMap)
 	}
 
 	log.Println("Mapper process", processId, ": worker", id, "finished")
@@ -49,6 +63,7 @@ func mapperWorker(id int, processId int, mapperJobs chan string, wgMapper *sync.
 // mapperJobs is a channel of chunks
 func MapperProcess(id int, mapperJobs chan string) {
 	var wgMapper sync.WaitGroup
+	wgGlobalMapper.Add(1)
 	log.Println("Mapper process", id, ": started")
 	for w := 1; w <= 4; w++ {
 		wgMapper.Add(1)
@@ -59,5 +74,18 @@ func MapperProcess(id int, mapperJobs chan string) {
 	wgMapper.Wait()
 	availableMapperProcesses[id] = true
 	log.Println("Mapper process", id, ": finished")
-	log.Println(availableMapperProcesses)
+	// if shouldCloseInterChannel(AvailableIntermediaryProcesses, IntermediaryJobs) {
+	// 	close(IntermediaryJobs)
+	// 	log.Println("Mapper process", id, ": closed intermediary jobs")
+	// }
+	// _, ok := <-IntermediaryJobs
+	// if ok {
+	// 	log.Println("Mapper process", id, ": closing intermediary jobs")
+	// 	close(IntermediaryJobs)
+	// }
+
+	// log.Println("Mapper process", id, ": waiting for intermediary processes to finish")
+	// wgGlobalIntermediary.Wait()
+	// log.Println("Mapper process", id, ": intermediary processes finished")
+	wgGlobalMapper.Done()
 }

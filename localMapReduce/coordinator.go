@@ -9,9 +9,6 @@ import (
 )
 
 var availableMapperProcesses = [2]bool{true, true}
-var AvailableIntermediaryProcesses = [2]bool{true, true}
-
-var IntermediaryJobs = make(chan map[string]uint16)
 
 func checkNilErr(err error) {
 	if err != nil {
@@ -26,12 +23,13 @@ func activateMapperProcess(mapperJobs chan string) {
 			go MapperProcess(i, mapperJobs)
 			break
 		} else {
-			log.Println("Coordinator: Mapper process", i, "is not available")
+			// log.Println("Coordinator: Mapper process", i, "is not available")
 		}
 	}
 }
 
 func readData(reader *bufio.Reader, buffer []byte, mapperJobs chan string, wg *sync.WaitGroup) {
+	log.Println("Coordinator: Started reading data")
 	for {
 		bytesRead, err := reader.Read(buffer)
 		if err != nil {
@@ -53,12 +51,12 @@ func readData(reader *bufio.Reader, buffer []byte, mapperJobs chan string, wg *s
 		// break //<- For testing
 	}
 	wg.Done()
-	log.Println("Coordinator: Finished reading data")
 	close(mapperJobs)
 }
 
 func Coordinator() {
-	log.SetFlags(log.Lshortfile)
+	// log.SetFlags(log.Lshortfile)
+	log.SetFlags(log.Lmicroseconds)
 	log.Println("In coordinator")
 
 	// Open file
@@ -70,7 +68,7 @@ func Coordinator() {
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 64*1024) // 64kb chunks
 	// initialize channel
-	mapperJobs := make(chan string)
+	mapperJobs := make(chan string, 100)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -78,5 +76,17 @@ func Coordinator() {
 	readData(reader, buffer, mapperJobs, &wg)
 
 	wg.Wait()
-	// time.Sleep(time.Second * 2) //<- For testing , DELETE LATER
+	log.Println("Coordinator: Finished reading file")
+
+	log.Println("Coordinator: Waiting for mapper processes to finish")
+	wgGlobalMapper.Wait()
+	log.Println("Coordinator: mapper proccesses finished")
+
+	close(IntermediaryJobs)
+	log.Println("Coordinator: Closed intermediary channel")
+
+	log.Println("Coordinator: Waiting for intermediary processes to finish")
+	wgGlobalIntermediary.Wait()
+
+	log.Println("Coordinator: Program finished")
 }
