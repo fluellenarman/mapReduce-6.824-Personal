@@ -6,21 +6,15 @@ import (
 	"sync"
 )
 
-var wgGlobalMapper sync.WaitGroup
-
-var AvailableIntermediaryProcesses = [2]bool{true, true}
-var IntermediaryJobs = make(chan keyValuePair)
-
 type keyValuePair struct {
 	key   string
 	value uint16
 }
 
-func shouldCloseInterChannel(avail [2]bool, channel chan keyValuePair) bool {
-	// if channel is already closed, return false
-	_, ok := <-channel
-	return ok
-}
+var wgGlobalMapper sync.WaitGroup
+
+var AvailableIntermediaryProcesses = [2]bool{true, true}
+var IntermediaryJobs = make(chan keyValuePair, 100)
 
 func activateIntermediaryProcess(intermediaryJobs chan keyValuePair) {
 	for i, available := range AvailableIntermediaryProcesses {
@@ -74,18 +68,6 @@ func MapperProcess(id int, mapperJobs chan string) {
 	wgMapper.Wait()
 	availableMapperProcesses[id] = true
 	log.Println("Mapper process", id, ": finished")
-	// if shouldCloseInterChannel(AvailableIntermediaryProcesses, IntermediaryJobs) {
-	// 	close(IntermediaryJobs)
-	// 	log.Println("Mapper process", id, ": closed intermediary jobs")
-	// }
-	// _, ok := <-IntermediaryJobs
-	// if ok {
-	// 	log.Println("Mapper process", id, ": closing intermediary jobs")
-	// 	close(IntermediaryJobs)
-	// }
 
-	// log.Println("Mapper process", id, ": waiting for intermediary processes to finish")
-	// wgGlobalIntermediary.Wait()
-	// log.Println("Mapper process", id, ": intermediary processes finished")
 	wgGlobalMapper.Done()
 }

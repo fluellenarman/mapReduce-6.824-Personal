@@ -7,27 +7,32 @@ import (
 
 var wgGlobalIntermediary sync.WaitGroup
 
-// Each pair is assigned a reducer
-var pairMap = make(map[string]int)
-
-var curReducerProcess = 1
-var ReducerJobs = make(chan keyValuePair)
 var AvailableReducerProcesses = [2]bool{true, true}
 
-var intermediaryLock = &sync.Mutex{}
+var reducerChannels [2]chan keyValuePair
 
-func assignPairToReducer(pair keyValuePair) {
+func activateReducerProcess(reducerChannels *[2]chan keyValuePair) {
+	for i, available := range AvailableReducerProcesses {
+		if available {
+			AvailableReducerProcesses[i] = false
+			go ReducerProcess(i, reducerChannels[i])
+			break
+		} else {
+			// log.Println("Coordinator: Reducer process", i, "is not available")
+		}
+	}
+}
+
+func assignPairToReducer(pair keyValuePair, pairMap map[string]int, currentReducer *int) {
 	_, ok := pairMap[pair.key]
 	if !ok {
-		// log.Println(pair)
-		pairMap[pair.key] = curReducerProcess
-		// log.Println(pairMap)
+		pairMap[pair.key] = *currentReducer
+	}
 
-		if curReducerProcess < len(AvailableReducerProcesses) {
-			curReducerProcess++
-		} else {
-			curReducerProcess = 1
-		}
+	if *currentReducer >= len(AvailableReducerProcesses)-1 {
+		*currentReducer = 0
+	} else {
+		*currentReducer++
 	}
 }
 
@@ -35,12 +40,16 @@ func intermediaryWorker(id int, processId int, intermediaryJobs chan keyValuePai
 
 	log.Println("Intermediary process", processId, ": worker", id, "started")
 
+	// Each pair is assigned a reducer
+	// Each worker has their own pairmap
+	var pairMap = make(map[string]int)
+	currentReducer := 0
+
 	for j := range intermediaryJobs {
-		j = j
-		intermediaryLock.Lock()
-		assignPairToReducer(j)
-		intermediaryLock.Unlock()
-		// log.Println("Intermediary process", processId, ": worker", id, "processed", j.key)
+		activateReducerProcess(&reducerChannels)
+		assignPairToReducer(j, pairMap, &currentReducer)
+		reducerChannels[pairMap[j.key]] <- j
+		// log.Println(pairMap[j.key])
 	}
 
 	log.Println("Intermediary process", processId, ": worker", id, "Finished")
@@ -48,16 +57,18 @@ func intermediaryWorker(id int, processId int, intermediaryJobs chan keyValuePai
 }
 
 func IntermediaryProcess(id int, intermediaryJobs chan keyValuePair) {
-	wgGlobalIntermediary.Add(1)
-	var wgIntermediary sync.WaitGroup
 	log.Println("Intermediary process", id, ": started")
 
+	wgGlobalIntermediary.Add(1)
+	var wgIntermediary sync.WaitGroup
+
+	// Create workers
 	for w := 1; w <= 4; w++ {
 		wgIntermediary.Add(1)
 		go intermediaryWorker(w, id, intermediaryJobs, &wgIntermediary)
 	}
-
 	wgIntermediary.Wait()
+
 	AvailableIntermediaryProcesses[id] = true
 	// log.Println(pairMap)
 	log.Println("Intermediary process", id, ": finished")

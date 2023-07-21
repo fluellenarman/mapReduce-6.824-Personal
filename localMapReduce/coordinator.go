@@ -10,6 +10,12 @@ import (
 
 var availableMapperProcesses = [2]bool{true, true}
 
+func initializeReducerChannels(channels *[2]chan keyValuePair) {
+	for i := 0; i < len(channels); i++ {
+		channels[i] = make(chan keyValuePair, 100)
+	}
+}
+
 func checkNilErr(err error) {
 	if err != nil {
 		fmt.Println(err)
@@ -43,7 +49,6 @@ func readData(reader *bufio.Reader, buffer []byte, mapperJobs chan string, wg *s
 				availableMapperProcesses[i] = false
 			}
 		}
-		activateMapperProcess(mapperJobs)
 
 		// channels represent sending and receiving data
 		mapperJobs <- chunk
@@ -51,13 +56,17 @@ func readData(reader *bufio.Reader, buffer []byte, mapperJobs chan string, wg *s
 		// break //<- For testing
 	}
 	wg.Done()
-	close(mapperJobs)
 }
 
 func Coordinator() {
-	// log.SetFlags(log.Lshortfile)
-	log.SetFlags(log.Lmicroseconds)
-	log.Println("In coordinator")
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	log.SetFlags(log.Lshortfile)
+	// log.SetFlags(log.Lmicroseconds)
+
+	// Initialize channels
+	initializeReducerChannels(&reducerChannels)
 
 	// Open file
 	file, err := os.Open("./bible.txt")
@@ -67,26 +76,37 @@ func Coordinator() {
 	// Initialize reader and buffer
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, 64*1024) // 64kb chunks
+
 	// initialize channel
 	mapperJobs := make(chan string, 100)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	activateMapperProcess(mapperJobs)
 
 	readData(reader, buffer, mapperJobs, &wg)
 
+	// Waiting for proccesses to finish and closing channels
 	wg.Wait()
+	close(mapperJobs)
+	log.Println("Coordinator: Closed mapper channel")
 	log.Println("Coordinator: Finished reading file")
 
 	log.Println("Coordinator: Waiting for mapper processes to finish")
 	wgGlobalMapper.Wait()
 	log.Println("Coordinator: mapper proccesses finished")
-
 	close(IntermediaryJobs)
 	log.Println("Coordinator: Closed intermediary channel")
 
 	log.Println("Coordinator: Waiting for intermediary processes to finish")
 	wgGlobalIntermediary.Wait()
+	log.Println("Coordinator: intermediary processes finished")
+	for i := 0; i < len(reducerChannels); i++ {
+		close(reducerChannels[i])
+	}
+	log.Println("Coordinator: Closed reducer channels")
+
+	log.Println("Coordinator: Waiting for reducer processes to finish")
+	wgGlobalReducer.Wait()
+	log.Println("Coordinator: reducer processes finished")
 
 	log.Println("Coordinator: Program finished")
 }
