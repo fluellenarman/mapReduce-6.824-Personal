@@ -109,4 +109,6 @@ func Coordinator() {
 	log.Println("Coordinator: reducer processes finished")
 
 	log.Println("Coordinator: Program finished")
+	log.Println(len(finalOutputMap))
+	log.Println(finalWordCount)
 }
