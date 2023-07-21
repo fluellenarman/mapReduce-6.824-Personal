@@ -13,8 +13,7 @@ func main() {
 	fmt.Println(os.Args[1])
 	startTime := time.Now()
 	if os.Args[1] == "sequential" {
-		// fmt.Println("here")
-		wordCounter.SerialWordCounter()
+		wordCounter.SequentialWordCounter()
 	} else if os.Args[1] == "concurrent" {
 		wordCounter.ConcCoordinator()
 	} else if os.Args[1] == "mapreduce" {

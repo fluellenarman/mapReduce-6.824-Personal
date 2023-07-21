@@ -55,7 +55,7 @@ func processData(buffer []byte, reader *bufio.Reader) (int, map[string]uint16) {
 	return wordCount, wordMap
 }
 
-func SerialWordCounter() {
+func SequentialWordCounter() {
 	// Declaring Variables
 	wordCount := 0
 	wordMap := map[string]uint16{}
