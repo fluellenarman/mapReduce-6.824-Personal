@@ -1,11 +1,10 @@
-package main
+package wordCounter
 
 import (
 	"bufio"
-	"fmt"
+	"log"
 	"strings"
 	"sync"
-	"time"
 )
 
 var workerNum int = 4
@@ -17,19 +16,17 @@ func worker(id int, jobs chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for j := range jobs {
-		fmt.Println("worker", id, "started new job")
+		log.Println("worker", id, "started new job")
 		words := strings.Fields(j)
 		countMap := make(map[string]uint16)
 
 		for _, word := range words {
 			word = strings.Trim(word, "!,.?!:;()'\"")
-			// fmt.Println(word)
 			countMap[word]++
 		}
 
 		mutex.Lock()
 		for word, count := range countMap {
-			// fmt.Println(word, count)
 			wordMap[word] += count
 		}
 		mutex.Unlock()
@@ -61,7 +58,7 @@ func processDataConcurrently(buffer []byte, reader *bufio.Reader, jobs chan stri
 }
 
 func ConcCoordinator() {
-	fmt.Println("Inside ConcCoordinator")
+	log.Println("Inside ConcCoordinator")
 	filePath := "./bible.txt"
 	file := readFunc(filePath)
 	defer file.Close()
@@ -73,9 +70,7 @@ func ConcCoordinator() {
 
 	processDataConcurrently(buffer, reader, jobs)
 
-	fmt.Println(wordSum)
-	time.Sleep(time.Second)
-	fmt.Println(wordSum)
-	fmt.Println(wordMap)
-	defer fmt.Println("End of ConcCoordinator")
+	log.Println(wordSum)
+	log.Println(wordSum)
+	log.Println("End of ConcCoordinator")
 }

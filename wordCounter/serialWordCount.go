@@ -1,4 +1,4 @@
-package main
+package wordCounter
 
 import (
 	"bufio"
@@ -49,6 +49,7 @@ func processData(buffer []byte, reader *bufio.Reader) (int, map[string]uint16) {
 			// fmt.Println(words[i])
 			words[i] = strings.Trim(words[i], "!,.?!:;()'\"")
 			wordMap[words[i]] += 1
+			// log.Println(words[i])
 		}
 	}
 	return wordCount, wordMap

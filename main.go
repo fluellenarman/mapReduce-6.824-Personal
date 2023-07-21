@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	helperTxt "here/createLargeTxt"
 	mapReduce "here/localMapReduce"
+	wordCounter "here/wordCounter"
 	"os"
 	"time"
 )
@@ -12,11 +14,13 @@ func main() {
 	startTime := time.Now()
 	if os.Args[1] == "sequential" {
 		// fmt.Println("here")
-		SerialWordCounter()
+		wordCounter.SerialWordCounter()
 	} else if os.Args[1] == "concurrent" {
-		ConcCoordinator()
+		wordCounter.ConcCoordinator()
 	} else if os.Args[1] == "mapreduce" {
 		mapReduce.Coordinator()
+	} else if os.Args[1] == "createLargeTxt" {
+		helperTxt.CreateLargeTxt()
 	}
 	elapsedTime := time.Since(startTime)
 	fmt.Println("Time taken:", elapsedTime)
