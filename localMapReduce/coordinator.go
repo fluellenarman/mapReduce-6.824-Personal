@@ -6,9 +6,34 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 var availableMapperProcesses = [2]bool{true, true}
+
+func writeOutputToFile(finalOutputMap map[string]uint16) {
+	outputFile, err := os.Create("output.txt")
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+
+	writer := bufio.NewWriter(outputFile)
+	for key, value := range finalOutputMap {
+		_, err := fmt.Fprintf(writer, "%s: %v\n", key, value)
+		if err != nil {
+			fmt.Println("Error writing to file:", err)
+			return
+		}
+
+		if err := writer.Flush(); err != nil {
+			fmt.Println("Error flushing data:", err)
+			return
+		}
+	}
+
+	outputFile.Close()
+}
 
 func initializeReducerChannels(channels *[2]chan keyValuePair) {
 	for i := 0; i < len(channels); i++ {
@@ -65,6 +90,8 @@ func Coordinator() {
 	log.SetFlags(log.Lshortfile)
 	// log.SetFlags(log.Lmicroseconds)
 
+	startTime := time.Now()
+
 	// Initialize channels
 	initializeReducerChannels(&reducerChannels)
 
@@ -108,7 +135,14 @@ func Coordinator() {
 	wgGlobalReducer.Wait()
 	log.Println("Coordinator: reducer processes finished")
 
+	writeOutputToFile(finalOutputMap)
+
 	log.Println("Coordinator: Program finished")
+
+	elapsedTime := time.Since(startTime)
+	fmt.Println("Time taken:", elapsedTime)
+
+	// log.Println(finalOutputMap)
 	log.Println(len(finalOutputMap))
 	log.Println(finalWordCount)
 }
